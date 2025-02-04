@@ -385,6 +385,10 @@ class GRPOTrainer(Trainer):
     def _prepare_inputs(self, inputs: dict[str, Union[torch.Tensor, Any]]) -> dict[str, Union[torch.Tensor, Any]]:
         device = self.accelerator.device
         prompts = [x["prompt"] for x in inputs]
+        print("-"*10)
+        print(prompts)
+        print("-"*10)
+        exit()
         prompts_text = [maybe_apply_chat_template(example, self.processing_class)["prompt"] for example in inputs]
         prompt_inputs = self.processing_class(
             prompts_text, return_tensors="pt", padding=True, padding_side="left", add_special_tokens=False
@@ -407,6 +411,10 @@ class GRPOTrainer(Trainer):
                     llm_model.load_weights(state_dict.items())
                 self._last_loaded_step = self.state.global_step
 
+
+
+            
+
             # Generate completions using vLLM: gather all prompts and use them in a single call in the main process
             all_prompts_text = gather_object(prompts_text)
             if self.accelerator.is_main_process:
@@ -423,6 +431,9 @@ class GRPOTrainer(Trainer):
                 (self.accelerator.process_index + 1) * len(prompts) * self.num_generations,
             )
             completion_ids = completion_ids[process_slice]
+
+
+
 
             # Pad the completions, and concatenate them with the prompts
             completion_ids = [torch.tensor(ids, device=device) for ids in completion_ids]
