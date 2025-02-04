@@ -389,9 +389,10 @@ class GRPOTrainer(Trainer):
         print(prompts)
         print("-"*10)
         prompts_text = [maybe_apply_chat_template(example, self.processing_class)["prompt"] for example in inputs]
-        print("-"*10)
+        print("-"*20)
         print(prompts_text)
-        print("-"*10)
+        print("-"*20)
+        exit()
         prompt_inputs = self.processing_class(
             prompts_text, return_tensors="pt", padding=True, padding_side="left", add_special_tokens=False
         )
