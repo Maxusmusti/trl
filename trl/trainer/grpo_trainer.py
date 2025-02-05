@@ -48,6 +48,7 @@ from .callbacks import SyncRefModelCallback
 from .grpo_config import GRPOConfig
 from .utils import generate_model_card, get_comet_experiment_url, pad
 
+from math_cool import *
 
 if is_peft_available():
     from peft import PeftConfig, get_peft_model
@@ -389,15 +390,55 @@ class GRPOTrainer(Trainer):
             per_token_logps.append(token_log_prob)
         return torch.stack(per_token_logps)
 
+    @timeout_decorator.timeout(2)  # 2 seconds timeout
+    def _validate_answer(equation, gt):
+        try:
+            if math_equal(memoized_canonical_form(extract(equation)), memoized_canonical_form(extract(gt))):
+                return True
+            else:
+                return False
+        except Exception as e:
+            logger.error(f"Error in equation processing: {str(e)}")
+            return False
+
+    def _evolve_completion(prompt, target, output, depth):
+        if depth = 2:
+            return output
+
+        mini_sampling_params = SamplingParams(
+            n=1,
+            temperature=self.sampling_params.temperature,
+            max_tokens=self.max_completion_length
+        )
+        trunc = output.text.split("<|end_of_thought|>")[0] + "\n\nWait"
+        new_prompt = prompt + trunc
+        responses = self.llm.generate(new_prompt, sampling_params=self.sampling_params, use_tqdm=False)
+        print("-----------------")
+        print(depth)
+        print(responses)
+        print(responses[0].outputs[0].text)
+        print("-----------------")
+        if _validate_answer(responses[0].outputs[0].text, target):
+            return outputs[0].outputs
+        else:
+            return _evolve_completions(new_prompt, target, responses[0].outputs[0], depth+1)
 
     def _evolve_via_backtrack(self, prompts_text, targets):
         # Generate completions using vLLM: gather all prompts and use them in a single call in the main process
         all_prompts_text = gather_object(prompts_text)
+        completion_ids = []
         if self.accelerator.is_main_process:
             outputs = self.llm.generate(all_prompts_text, sampling_params=self.sampling_params, use_tqdm=False)
+            for i, completions in enumerate(outputs):
+                for output in completions.outputs:
+                    if _validate_answer(output.text, targets[i]):
+                        completion_ids.append(output.token_ids)
+                    else:
+                        evolved = _evolve_completion(all_prompts_text[i], targets[i], output, 0)
+                        completion_ids.append(evolved.token_ids)
             print(outputs)
             exit()
-            completion_ids = [out.token_ids for completions in outputs for out in completions.outputs]
+            #completion_ids = [out.token_ids for completions in outputs for out in completions.outputs]
         else:
             completion_ids = [None] * len(all_prompts_text) * self.num_generations
 
@@ -435,7 +476,7 @@ class GRPOTrainer(Trainer):
                     llm_model.load_weights(state_dict.items())
                 self._last_loaded_step = self.state.global_step
 
-            completion_ids = _evolve_via_backtrack(prompts_text, targets)
+            completion_ids = self._evolve_via_backtrack(prompts_text, targets)
 
             # Broadcast the completions from the main process to all processes, ensuring each process receives its
             # corresponding slice.
