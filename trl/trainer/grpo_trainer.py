@@ -390,21 +390,24 @@ class GRPOTrainer(Trainer):
         return torch.stack(per_token_logps)
 
 
-    def _evolve_via_backtrack(self, prompts_text):
+    def _evolve_via_backtrack(self, prompts_text, targets):
         # Generate completions using vLLM: gather all prompts and use them in a single call in the main process
         all_prompts_text = gather_object(prompts_text)
         if self.accelerator.is_main_process:
             outputs = self.llm.generate(all_prompts_text, sampling_params=self.sampling_params, use_tqdm=False)
+            print(outputs)
+            exit()
             completion_ids = [out.token_ids for completions in outputs for out in completions.outputs]
         else:
             completion_ids = [None] * len(all_prompts_text) * self.num_generations
 
-        return prompts, prompt_ids, prompt_mask, completion_ids
+        return completion_ids #prompts, prompt_ids, prompt_mask, completion_ids
 
 
     def _prepare_inputs(self, inputs: dict[str, Union[torch.Tensor, Any]]) -> dict[str, Union[torch.Tensor, Any]]:
         device = self.accelerator.device
         prompts = [x["prompt"] for x in inputs]
+        targets = [x["target"] for x in inputs]
         prompts_text = [maybe_apply_chat_template(example, self.processing_class)["prompt"] for example in inputs]
         prompt_inputs = self.processing_class(
             prompts_text, return_tensors="pt", padding=True, padding_side="left", add_special_tokens=False
@@ -432,7 +435,7 @@ class GRPOTrainer(Trainer):
                     llm_model.load_weights(state_dict.items())
                 self._last_loaded_step = self.state.global_step
 
-            completion_ids = _evolve_via_backtrack(prompts_text)
+            completion_ids = _evolve_via_backtrack(prompts_text, targets)
 
             # Broadcast the completions from the main process to all processes, ensuring each process receives its
             # corresponding slice.
