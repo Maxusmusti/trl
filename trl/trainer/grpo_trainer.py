@@ -49,6 +49,7 @@ from .grpo_config import GRPOConfig
 from .utils import generate_model_card, get_comet_experiment_url, pad
 
 from math_cool import *
+import timeout_decorator
 
 if is_peft_available():
     from peft import PeftConfig, get_peft_model
@@ -402,7 +403,7 @@ class GRPOTrainer(Trainer):
             return False
 
     def _evolve_completion(prompt, target, output, depth):
-        if depth = 2:
+        if depth == 2:
             return output
 
         mini_sampling_params = SamplingParams(
@@ -436,7 +437,7 @@ class GRPOTrainer(Trainer):
                     else:
                         evolved = _evolve_completion(all_prompts_text[i], targets[i], output, 0)
                         completion_ids.append(evolved.token_ids)
-            print(outputs)
+            #print(outputs)
             exit()
             #completion_ids = [out.token_ids for completions in outputs for out in completions.outputs]
         else:
