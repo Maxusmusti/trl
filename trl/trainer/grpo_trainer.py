@@ -427,6 +427,7 @@ class GRPOTrainer(Trainer):
     def _evolve_via_backtrack(self, prompts_text, targets):
         # Generate completions using vLLM: gather all prompts and use them in a single call in the main process
         all_prompts_text = gather_object(prompts_text)
+        all_targets = gather_object(targets)
         completion_ids = []
         if self.accelerator.is_main_process:
             outputs = self.llm.generate(all_prompts_text, sampling_params=self.sampling_params, use_tqdm=False)
@@ -435,7 +436,7 @@ class GRPOTrainer(Trainer):
                     if self._validate_answer(output.text, targets[i]):
                         completion_ids.append(output.token_ids)
                     else:
-                        evolved = self._evolve_completion(all_prompts_text[i], targets[i], output, 0)
+                        evolved = self._evolve_completion(all_prompts_text[i], all_targets[i], output, 0)
                         completion_ids.append(evolved.token_ids)
             #completion_ids = [out.token_ids for completions in outputs for out in completions.outputs]
         else:
