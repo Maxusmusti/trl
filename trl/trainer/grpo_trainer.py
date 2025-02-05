@@ -420,7 +420,7 @@ class GRPOTrainer(Trainer):
         print(responses[0].outputs[0].text)
         print("-----------------")
         if self._validate_answer(responses[0].outputs[0].text, target):
-            return outputs[0].outputs
+            return responses[0].outputs[0]
         else:
             return self._evolve_completion(new_prompt, target, responses[0].outputs[0], depth+1)
 
@@ -433,11 +433,12 @@ class GRPOTrainer(Trainer):
             outputs = self.llm.generate(all_prompts_text, sampling_params=self.sampling_params, use_tqdm=False)
             for i, completions in enumerate(outputs):
                 for output in completions.outputs:
-                    if self._validate_answer(output.text, targets[i]):
+                    if self._validate_answer(output.text, all_targets[i]):
                         completion_ids.append(output.token_ids)
                     else:
                         evolved = self._evolve_completion(all_prompts_text[i], all_targets[i], output, 0)
                         completion_ids.append(evolved.token_ids)
+                print("DONE WITH A WAVE OF COMPLETIONS---------------------------")
             #completion_ids = [out.token_ids for completions in outputs for out in completions.outputs]
         else:
             completion_ids = [None] * len(all_prompts_text) * self.num_generations
