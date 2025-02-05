@@ -392,7 +392,7 @@ class GRPOTrainer(Trainer):
         return torch.stack(per_token_logps)
 
     @timeout_decorator.timeout(2)  # 2 seconds timeout
-    def _validate_answer(equation, gt):
+    def _validate_answer(self, equation, gt):
         try:
             if math_equal(memoized_canonical_form(extract(equation)), memoized_canonical_form(extract(gt))):
                 return True
@@ -402,7 +402,7 @@ class GRPOTrainer(Trainer):
             logger.error(f"Error in equation processing: {str(e)}")
             return False
 
-    def _evolve_completion(prompt, target, output, depth):
+    def _evolve_completion(self, prompt, target, output, depth):
         if depth == 2:
             return output
 
@@ -419,10 +419,10 @@ class GRPOTrainer(Trainer):
         print(responses)
         print(responses[0].outputs[0].text)
         print("-----------------")
-        if _validate_answer(responses[0].outputs[0].text, target):
+        if self._validate_answer(responses[0].outputs[0].text, target):
             return outputs[0].outputs
         else:
-            return _evolve_completions(new_prompt, target, responses[0].outputs[0], depth+1)
+            return self._evolve_completions(new_prompt, target, responses[0].outputs[0], depth+1)
 
     def _evolve_via_backtrack(self, prompts_text, targets):
         # Generate completions using vLLM: gather all prompts and use them in a single call in the main process
@@ -432,10 +432,10 @@ class GRPOTrainer(Trainer):
             outputs = self.llm.generate(all_prompts_text, sampling_params=self.sampling_params, use_tqdm=False)
             for i, completions in enumerate(outputs):
                 for output in completions.outputs:
-                    if _validate_answer(output.text, targets[i]):
+                    if self._validate_answer(output.text, targets[i]):
                         completion_ids.append(output.token_ids)
                     else:
-                        evolved = _evolve_completion(all_prompts_text[i], targets[i], output, 0)
+                        evolved = self._evolve_completion(all_prompts_text[i], targets[i], output, 0)
                         completion_ids.append(evolved.token_ids)
             #print(outputs)
             exit()
