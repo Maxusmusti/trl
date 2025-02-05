@@ -414,11 +414,11 @@ class GRPOTrainer(Trainer):
         trunc = output.text.split("<|end_of_thought|>")[0] + "\n\nWait"
         new_prompt = prompt + trunc
         responses = self.llm.generate(new_prompt, sampling_params=self.sampling_params, use_tqdm=False)
-        print("-----------------")
-        print(depth)
-        print(responses)
-        print(responses[0].outputs[0].text)
-        print("-----------------")
+        #print("-----------------")
+        #print(depth)
+        #print(responses)
+        #print(responses[0].outputs[0].text)
+        #print("-----------------")
         if self._validate_answer(responses[0].outputs[0].text, target):
             return responses[0].outputs[0]
         else:
@@ -438,7 +438,7 @@ class GRPOTrainer(Trainer):
                     else:
                         evolved = self._evolve_completion(all_prompts_text[i], all_targets[i], output, 0)
                         completion_ids.append(evolved.token_ids)
-                print("DONE WITH A WAVE OF COMPLETIONS---------------------------")
+                #print("DONE WITH A WAVE OF COMPLETIONS---------------------------")
             #completion_ids = [out.token_ids for completions in outputs for out in completions.outputs]
         else:
             completion_ids = [None] * len(all_prompts_text) * self.num_generations
@@ -447,6 +447,9 @@ class GRPOTrainer(Trainer):
 
 
     def _prepare_inputs(self, inputs: dict[str, Union[torch.Tensor, Any]]) -> dict[str, Union[torch.Tensor, Any]]:
+        return inputs
+
+    def _cool_prepare_inputs(self, inputs: dict[str, Union[torch.Tensor, Any]], model) -> dict[str, Union[torch.Tensor, Any]]
         device = self.accelerator.device
         prompts = [x["prompt"] for x in inputs]
         targets = [x["target"] for x in inputs]
@@ -461,6 +464,7 @@ class GRPOTrainer(Trainer):
             prompt_ids = prompt_ids[:, -self.max_prompt_length :]
             prompt_mask = prompt_mask[:, -self.max_prompt_length :]
 
+ 
         # Generate completions using either vLLM or regular generation
         if self.args.use_vllm:
             # First, have main process load weights if needed
@@ -598,6 +602,7 @@ class GRPOTrainer(Trainer):
         }
 
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
+        inputs = self._cool_prepare_inputs(inputs, model)
         if return_outputs:
             raise ValueError("The GRPOTrainer does not support returning outputs")
         # Compute the per-token log probabilities for the model
