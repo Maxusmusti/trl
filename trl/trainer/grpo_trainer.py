@@ -50,6 +50,7 @@ from .utils import generate_model_card, get_comet_experiment_url, pad
 
 from math_cool import *
 import timeout_decorator
+import random
 
 if is_peft_available():
     from peft import PeftConfig, get_peft_model
@@ -403,7 +404,7 @@ class GRPOTrainer(Trainer):
             return False
 
     def _evolve_completion(self, prompt, target, output, depth):
-        if depth == 2:
+        if depth == 4:
             return output
 
         mini_sampling_params = SamplingParams(
@@ -433,7 +434,7 @@ class GRPOTrainer(Trainer):
             outputs = self.llm.generate(all_prompts_text, sampling_params=self.sampling_params, use_tqdm=False)
             for i, completions in enumerate(outputs):
                 for output in completions.outputs:
-                    if self._validate_answer(output.text, all_targets[i]):
+                    if self._validate_answer(output.text, all_targets[i])  or random.random() < 0.2:
                         completion_ids.append(output.token_ids)
                     else:
                         evolved = self._evolve_completion(all_prompts_text[i], all_targets[i], output, 0)
