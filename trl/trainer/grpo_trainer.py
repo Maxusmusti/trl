@@ -393,12 +393,12 @@ class GRPOTrainer(Trainer):
         return torch.stack(per_token_logps)
 
     def cut_list(self, data):
-    sequence = self.processing_class("<|end_of_thought|>", add_special_tokens=False)
-    sequence_len = len(sequence)
-    for i in range(len(data) - sequence_len + 1):
-        if data[i:i + sequence_len] == sequence:
-            return data[:i], data[i + sequence_len:]
-    return data, []
+        sequence = self.processing_class("<|end_of_thought|>", add_special_tokens=False)
+        sequence_len = len(sequence)
+        for i in range(len(data) - sequence_len + 1):
+            if data[i:i + sequence_len] == sequence:
+                return data[:i], data[i + sequence_len:]
+        return data, []
 
     @timeout_decorator.timeout(2)  # 2 seconds timeout
     def _validate_answer(self, equation, gt):
