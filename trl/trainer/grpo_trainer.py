@@ -405,9 +405,9 @@ class GRPOTrainer(Trainer):
             return False
 
     def _evolve_completion(self, prompt, target, output, depth, token_ids):
-        if depth == 1:
+        if depth == 2:
             token_ids += output.token_ids
-            print(self.processing_class.decode(token_ids, skip_special_tokens=False))
+            #print(self.processing_class.decode(token_ids, skip_special_tokens=False))
             return token_ids
 
         mini_sampling_params = SamplingParams(
@@ -415,7 +415,6 @@ class GRPOTrainer(Trainer):
             temperature=self.sampling_params.temperature,
             max_tokens=self.max_completion_length
         )
-        #token_ids, _ = self.cut_list(token_ids)
         trunc = output.text.split("<|end_of_thought|>")[0] + "\n\nWait"
         token_ids += tuple(self.processing_class(trunc, add_special_tokens=False).input_ids)
         new_prompt = prompt + trunc
@@ -424,13 +423,10 @@ class GRPOTrainer(Trainer):
         #print(depth)
         #print(responses)
         #print(responses[0].outputs[0].text)
-        #new_token_ids = token_ids + tuple(self.processing_class("\n\nWait", add_special_tokens=False).input_ids) + responses[0].outputs[0].token_ids
-        #print(token_ids)
-        #print(self.processing_class.decode(token_ids, skip_special_tokens=False))
         #print("-----------------")
         if self._validate_answer(responses[0].outputs[0].text, target):
             token_ids += output.token_ids
-            print(self.processing_class.decode(token_ids, skip_special_tokens=False))
+            #print(self.processing_class.decode(token_ids, skip_special_tokens=False))
             return token_ids
         else:
             return self._evolve_completion(new_prompt, target, responses[0].outputs[0], depth+1, token_ids)
@@ -449,7 +445,6 @@ class GRPOTrainer(Trainer):
                     else:
                         evolved = self._evolve_completion(all_prompts_text[i], all_targets[i], output, 0, [])
                         completion_ids.append(evolved)
-            exit()
                 #print("DONE WITH A WAVE OF COMPLETIONS---------------------------")
             #completion_ids = [out.token_ids for completions in outputs for out in completions.outputs]
         else:
