@@ -392,13 +392,6 @@ class GRPOTrainer(Trainer):
             per_token_logps.append(token_log_prob)
         return torch.stack(per_token_logps)
 
-    def cut_list(self, data):
-        sequence = self.processing_class("<|end_of_thought|>", add_special_tokens=False)
-        sequence_len = len(sequence)
-        for i in range(len(data) - sequence_len + 1):
-            if data[i:i + sequence_len] == sequence:
-                return data[:i], data[i + sequence_len:]
-        return data, []
 
     @timeout_decorator.timeout(2)  # 2 seconds timeout
     def _validate_answer(self, equation, gt):
@@ -412,7 +405,9 @@ class GRPOTrainer(Trainer):
             return False
 
     def _evolve_completion(self, prompt, target, output, depth, token_ids):
-        if depth == 2:
+        if depth == 1:
+            token_ids += output.token_ids
+            print(self.processing_class.decode(token_ids, skip_special_tokens=False))
             return token_ids
 
         mini_sampling_params = SamplingParams(
@@ -420,20 +415,25 @@ class GRPOTrainer(Trainer):
             temperature=self.sampling_params.temperature,
             max_tokens=self.max_completion_length
         )
-        token_ids, _ = self.cut_list(token_ids)
+        #token_ids, _ = self.cut_list(token_ids)
         trunc = output.text.split("<|end_of_thought|>")[0] + "\n\nWait"
+        token_ids += tuple(self.processing_class(trunc, add_special_tokens=False).input_ids)
         new_prompt = prompt + trunc
         responses = self.llm.generate(new_prompt, sampling_params=self.sampling_params, use_tqdm=False)
         #print("-----------------")
         #print(depth)
         #print(responses)
         #print(responses[0].outputs[0].text)
+        #new_token_ids = token_ids + tuple(self.processing_class("\n\nWait", add_special_tokens=False).input_ids) + responses[0].outputs[0].token_ids
+        #print(token_ids)
+        #print(self.processing_class.decode(token_ids, skip_special_tokens=False))
         #print("-----------------")
-        new_token_ids = token_ids + self.processing_class("\n\nWait", add_special_tokens=False) + responses[0].outputs[0].token_ids
         if self._validate_answer(responses[0].outputs[0].text, target):
-            return new_token_ids
+            token_ids += output.token_ids
+            print(self.processing_class.decode(token_ids, skip_special_tokens=False))
+            return token_ids
         else:
-            return self._evolve_completion(new_prompt, target, responses[0].outputs[0], depth+1, new_token_ids)
+            return self._evolve_completion(new_prompt, target, responses[0].outputs[0], depth+1, token_ids)
 
     def _evolve_via_backtrack(self, prompts_text, targets):
         # Generate completions using vLLM: gather all prompts and use them in a single call in the main process
@@ -447,8 +447,9 @@ class GRPOTrainer(Trainer):
                     if self._validate_answer(output.text, all_targets[i])  or random.random() < 0.2:
                         completion_ids.append(output.token_ids)
                     else:
-                        evolved = self._evolve_completion(all_prompts_text[i], all_targets[i], output, 0, output.token_ids)
-                        completion_ids.append(evolved.token_ids)
+                        evolved = self._evolve_completion(all_prompts_text[i], all_targets[i], output, 0, [])
+                        completion_ids.append(evolved)
+            exit()
                 #print("DONE WITH A WAVE OF COMPLETIONS---------------------------")
             #completion_ids = [out.token_ids for completions in outputs for out in completions.outputs]
         else:
