@@ -435,23 +435,17 @@ class GRPOTrainer(Trainer):
         # Generate completions using vLLM: gather all prompts and use them in a single call in the main process
         all_prompts_text = gather_object(prompts_text)
         all_targets = gather_object(targets)
-        partial_ids = []
-        second_prompts = []
+        completion_ids = []
         if self.accelerator.is_main_process:
             outputs = self.llm.generate(all_prompts_text, sampling_params=self.sampling_params, use_tqdm=False)
             for i, completions in enumerate(outputs):
                 for output in completions.outputs:
-                    trunc = output.text.split("<|end_of_thought|>")[0] + "\n\nWait"
-                    partial_ids.append(tuple(self.processing_class(trunc, add_special_tokens=False).input_ids))
-                    second_prompts.append(all_prompts_text[i] + trunc)
-            mini_sampling_params = SamplingParams(
-                n=1,
-                temperature=self.sampling_params.temperature,
-                max_tokens=self.max_completion_length
-            )
-            outputs_evolved = self.llm.generate(second_prompts, sampling_params=mini_sampling_params, use_tqdm=False)
-            completion_ids = [partial_ids[(self.num_generations * i) + j] + out.token_ids for i, completions in enumerate(outputs_evolved) for j, out in enumerate(completions.outputs)]
-            #print("DONE WITH A WAVE OF COMPLETIONS---------------------------")
+                    if self._validate_answer(output.text, all_targets[i])  or random.random() < 0.2:
+                        completion_ids.append(output.token_ids)
+                    else:
+                        evolved = self._evolve_completion(all_prompts_text[i], all_targets[i], output, 0, [])
+                        completion_ids.append(evolved)
+                #print("DONE WITH A WAVE OF COMPLETIONS---------------------------")
             #completion_ids = [out.token_ids for completions in outputs for out in completions.outputs]
         else:
             completion_ids = [None] * len(all_prompts_text) * self.num_generations
