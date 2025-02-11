@@ -450,7 +450,7 @@ class GRPOTrainer(Trainer):
                 max_tokens=self.max_completion_length
             )
             outputs_evolved = self.llm.generate(second_prompts, sampling_params=mini_sampling_params, use_tqdm=False)
-            completion_ids = [partial_ids[(self.num_generations * i) + j] + out.token_ids for i, completions in enumerate(outputs_evolved) for j, out in enumerate(completions.outputs)]
+            completion_ids = [partial_ids[i] + completions.outputs[0].token_ids for i, completions in enumerate(outputs_evolved)]
             #print("DONE WITH A WAVE OF COMPLETIONS---------------------------")
             #completion_ids = [out.token_ids for completions in outputs for out in completions.outputs]
         else:
@@ -578,6 +578,7 @@ class GRPOTrainer(Trainer):
                     for example in inputs:
                         # Repeat each value in the column for `num_generations` times
                         reward_kwargs[key].extend([example[key]] * self.num_generations)
+                reward_kwargs["tokenizer"] = self.processing_class
                 output_reward_func = reward_func(prompts=prompts, completions=completions, **reward_kwargs)
                 rewards_per_func[:, i] = torch.tensor(output_reward_func, dtype=torch.float32, device=device)
 
