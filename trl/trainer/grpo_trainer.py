@@ -478,6 +478,9 @@ class GRPOTrainer(Trainer):
                         completion_ids[temp_incompletes[i]].extend(output_ids)
                         incomplete.pop(i - modifier)
                         modifier += 1
+            for i in range(len(completion_ids)):
+                if len(completion_ids[i]) > self.max_completion_length:
+                    completion_ids[i] = completion_ids[i][:self.max_completion_length]
         else:
             completion_ids = [None] * len(all_prompts_text) * self.num_generations
 
