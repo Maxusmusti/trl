@@ -471,7 +471,7 @@ class GRPOTrainer(Trainer):
                         if new_text:
                             output_ids = self.processing_class(new_text, add_special_tokens=False).input_ids
                             completion_ids[temp_incompletes[i].extend(output_ids)]
-                        prompt = prompt + new_text
+                        mega_prompts_text[temp_incompletes[i]] += new_text
                     else:
                         output_ids = response.outputs[0].token_ids
                         completion_ids[temp_incompletes[i].extend(output_ids)]
