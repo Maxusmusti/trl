@@ -459,9 +459,9 @@ class GRPOTrainer(Trainer):
                 responses = self.llm.generate(to_process,sampling_params)
                 for i, response in enumerate(responses):
                     generated_text = response.outputs[0].text.strip()
-                    print("-----------------------------------------")
-                    print(f"Generated text: {generated_text}")
-                    print("-----------------------------------------")
+                    #print("-----------------------------------------")
+                    #print(f"Generated text: {generated_text}")
+                    #print("-----------------------------------------")
                     if "<|kill|>" in generated_text:
                         steps = generated_text.split("<|continue|>")
                         steps = steps[:-1]
@@ -470,11 +470,11 @@ class GRPOTrainer(Trainer):
                             new_text += "<|continue|>\n\n"
                         if new_text:
                             output_ids = self.processing_class(new_text, add_special_tokens=False).input_ids
-                            completion_ids[temp_incompletes[i].extend(output_ids)]
+                            completion_ids[temp_incompletes[i]].extend(output_ids)
                         mega_prompts_text[temp_incompletes[i]] += new_text
                     else:
                         output_ids = response.outputs[0].token_ids
-                        completion_ids[temp_incompletes[i].extend(output_ids)]
+                        completion_ids[temp_incompletes[i]].extend(output_ids)
                         incomplete.pop(i)
         else:
             completion_ids = [None] * len(all_prompts_text) * self.num_generations
