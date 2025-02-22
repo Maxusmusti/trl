@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from copy import copy
 import os
 import textwrap
 import warnings
@@ -435,47 +434,25 @@ class GRPOTrainer(Trainer):
     def _evolve_via_backtrack(self, prompts_text, targets):
         # Generate completions using vLLM: gather all prompts and use them in a single call in the main process
         all_prompts_text = gather_object(prompts_text)
+        all_targets = gather_object(targets)
+        partial_ids = []
+        second_prompts = []
         if self.accelerator.is_main_process:
-
-            mega_prompts_text = []
-            for prompt in all_prompts_text:
-                mega_prompts_text.extend([prompt] * self.num_generations)
-
-            # Prepare the vllm inference request with the formatted tokens
-            sampling_params = SamplingParams(
-                max_tokens=self.max_completion_length,
+            outputs = self.llm.generate(all_prompts_text, sampling_params=self.sampling_params, use_tqdm=False)
+            for i, completions in enumerate(outputs):
+                for output in completions.outputs:
+                    trunc = output.text.split("<|end_of_thought|>")[0] + "\n\nWait"
+                    partial_ids.append(tuple(self.processing_class(trunc, add_special_tokens=False).input_ids))
+                    second_prompts.append(all_prompts_text[i] + trunc)
+            mini_sampling_params = SamplingParams(
+                n=1,
                 temperature=self.sampling_params.temperature,
-                include_stop_str_in_output=True,
-                skip_special_tokens=False,
-                stop_token_ids=[100265, 100353],
+                max_tokens=self.max_completion_length
             )
-
-            # Perform inference using vllm
-            incomplete = list(range(len(mega_prompts_text)))
-            completion_ids = [[]] * len(mega_prompts_text)
-            while incomplete:
-                temp_incompletes = copy(incomplete)
-                to_process = [mega_prompts_text[i] for i in incomplete]
-                responses = self.llm.generate(to_process,sampling_params)
-                for i, response in enumerate(responses):
-                    generated_text = response.outputs[0].text.strip()
-                    print("-----------------------------------------")
-                    print(f"Generated text: {generated_text}")
-                    print("-----------------------------------------")
-                    if "<|kill|>" in generated_text:
-                        steps = generated_text.split("<|continue|>")
-                        steps = steps[:-1]
-                        new_text = "<|continue|>".join(steps)
-                        if "<|continue|>" in generated_text:
-                            new_text += "<|continue|>\n\n"
-                        if new_text:
-                            output_ids = self.processing_class(new_text, add_special_tokens=False).input_ids
-                            completion_ids[temp_incompletes[i].extend(output_ids)]
-                        prompt = prompt + new_text
-                    else:
-                        output_ids = response.outputs[0].token_ids
-                        completion_ids[temp_incompletes[i].extend(output_ids)]
-                        incomplete.pop(i)
+            outputs_evolved = self.llm.generate(second_prompts, sampling_params=mini_sampling_params, use_tqdm=False)
+            completion_ids = [partial_ids[i] + completions.outputs[0].token_ids for i, completions in enumerate(outputs_evolved)]
+            #print("DONE WITH A WAVE OF COMPLETIONS---------------------------")
+            #completion_ids = [out.token_ids for completions in outputs for out in completions.outputs]
         else:
             completion_ids = [None] * len(all_prompts_text) * self.num_generations
 
