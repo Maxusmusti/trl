@@ -457,7 +457,7 @@ class GRPOTrainer(Trainer):
                 modifier = 0
                 temp_incompletes = copy(incomplete)
                 to_process = [mega_prompts_text[i] for i in incomplete]
-                responses = self.llm.generate(to_process,sampling_params)
+                responses = self.llm.generate(to_process, sampling_params=sampling_params, use_tqdm=False)
                 for i, response in enumerate(responses):
                     generated_text = response.outputs[0].text.strip()
                     #print("-----------------------------------------")
