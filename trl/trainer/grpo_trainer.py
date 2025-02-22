@@ -454,6 +454,7 @@ class GRPOTrainer(Trainer):
             incomplete = list(range(len(mega_prompts_text)))
             completion_ids = [[]] * len(mega_prompts_text)
             while incomplete:
+                modifier = 0
                 temp_incompletes = copy(incomplete)
                 to_process = [mega_prompts_text[i] for i in incomplete]
                 responses = self.llm.generate(to_process,sampling_params)
@@ -475,7 +476,8 @@ class GRPOTrainer(Trainer):
                     else:
                         output_ids = response.outputs[0].token_ids
                         completion_ids[temp_incompletes[i]].extend(output_ids)
-                        incomplete.pop(i)
+                        incomplete.pop(i - modifier)
+                        modifier += 1
         else:
             completion_ids = [None] * len(all_prompts_text) * self.num_generations
 
