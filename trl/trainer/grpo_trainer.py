@@ -452,7 +452,9 @@ class GRPOTrainer(Trainer):
 
             # Perform inference using vllm
             incomplete = list(range(len(mega_prompts_text)))
-            completion_ids = [[]] * len(mega_prompts_text)
+            completion_ids = []
+            for i in range(len(mega_prompts_text)):
+                completion_ids.append([])
             while incomplete:
                 modifier = 0
                 temp_incompletes = copy(incomplete)
