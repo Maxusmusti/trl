@@ -576,7 +576,7 @@ class GRPOTrainer(Trainer):
                     )
 
         # Decode the generated completions
-        completions = self.processing_class.batch_decode(completion_ids, skip_special_tokens=True)
+        completions = self.processing_class.batch_decode(completion_ids, skip_special_tokens=False)
         if is_conversational(inputs[0]):
             completions = [[{"role": "assistant", "content": completion}] for completion in completions]
 
